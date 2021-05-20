@@ -1,0 +1,28 @@
+// Create
+INSERT @doc INTO Users
+
+FOR doc IN @data 
+    INSERT doc INTO Users
+
+// Read
+LET doc = DOCUMENT(Users, '1')
+RETURN doc
+
+FOR doc IN Users
+    FILTER doc.user_id == 1
+    RETURN doc
+
+// Update
+FOR doc IN Users
+
+    UPDATE doc WITH {update_by: "chittb"} INTO Users
+    RETURN {
+        new: NEW,
+        old: OLD
+    }
+
+// Delete
+FOR doc IN Users
+    FILTER doc.user_id == 1
+    REMOVE doc IN Users
+    RETURN OLD

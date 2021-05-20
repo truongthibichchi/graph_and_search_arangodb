@@ -1,0 +1,77 @@
+// Collect data
+FOR doc IN c_movies
+    LET new_doc = merge(doc, {
+        _key: to_string(doc.movie_id)
+    })
+    INSERT new_doc INTO Movies
+
+FOR doc IN c_users
+    LET new_doc = merge(doc, {
+        _key: to_string(doc.user_id)
+    })
+    INSERT new_doc INTO Users
+
+FOR doc IN c_ratings
+    LET new_doc = {
+        _from: concat('Users/', to_string(doc.user_id)),
+        _to: concat('Movies/', to_String(doc.item_id)),
+        Rating: doc.Rating,
+        Timestamp: doc.Timestamp
+    }
+    INSERT new_doc INTO Ratings
+
+
+// query
+Let us build the Collaborative Filtering step by step;
+
+FOR vertex, edge, path IN 1..1
+    OUTBOUND 'Users/1' Ratings
+    RETURN vertex
+
+
+1. Find movies I rated with 5 stars
+
+FOR movie, edge IN 1..1 
+  OUTBOUND 'Users/1'
+  GRAPH 'IMDBGraph'
+  FILTER TO_NUMBER(edge.ratings) == 5
+  LIMIT 10
+  RETURN {
+        "movie" : movie.movie_title,
+        "rating" : edge.ratings
+    }
+
+
+
+2. Find users who also rated these movies also with 5 stars
+
+FOR movie, edge, rating IN 1..1 
+  OUTBOUND 'Users/1'
+  GRAPH 'IMDBGraph'
+  FILTER TO_NUMBER(edge.ratings) == 5
+  
+      FOR user, edge2 IN ANY movie Ratings
+            FILTER TO_NUMBER(edge2.ratings) == 5
+            LIMIT 10
+            RETURN DISTINCT {
+                "user" : user._key,
+                "age" : user.Age
+            }
+
+
+3. Find additional movies also rated 5 stars by those users
+
+FOR movie, edge IN 1..1 
+  OUTBOUND 'Users/1'
+  GRAPH 'IMDBGraph'
+  FILTER TO_NUMBER(edge.ratings) == 5
+  
+      FOR user, edge2 IN ANY movie Ratings
+            FILTER TO_NUMBER(edge2.ratings) == 5
+           // All users who have also rated that movie with 5 stars
+          FOR movie2, edge3 IN ANY user Ratings
+              FILTER TO_NUMBER(edge3.ratings) == 5
+              LIMIT 10
+              RETURN DISTINCT {
+                 "title" : movie2.movie_title
+              }

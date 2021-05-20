@@ -1,0 +1,45 @@
+LET equal_result = (
+        FOR doc IN @@view
+            
+            FILTER 
+        LOWER(doc.name) == LOWER(@keyword)
+    
+            RETURN {'name': doc.name, '_key': doc._key, '_id': doc._id,}
+    )
+    LET like_result = (
+        LET prefix_res = (
+            FOR doc IN @@view
+                
+                FILTER 
+        LOWER(doc.name) LIKE LOWER(CONCAT(@keyword, "%"))
+    
+                RETURN {'name': doc.name, '_key': doc._key, '_id': doc._id,}
+        )
+        LET middle_res = (
+            FOR doc IN @@view
+                
+                FILTER 
+        LOWER(doc.name) LIKE LOWER(CONCAT("%", @keyword, "%"))
+    
+                RETURN {'name': doc.name, '_key': doc._key, '_id': doc._id,}
+        )
+        
+        LET result = APPEND(prefix_res, middle_res, true)
+        FOR doc IN result RETURN doc
+    )
+
+    LET fulltext_res = (
+        FOR doc IN @@view
+            SEARCH 
+        ANALYZER(doc.name IN TOKENS(@keyword, 'text_en'), 'text_en')
+        
+            
+            SORT BM25(doc) DESC 
+            RETURN {'name': doc.name, '_key': doc._key, '_id': doc._id,}
+    )
+
+    LET equal_like_result = APPEND(equal_result, like_result, true)
+    LET result = APPEND(equal_like_result, fulltext_res, true)
+    FOR doc IN result 
+    LIMIT @limit 
+    RETURN MERGE(doc, {_collection: SPLIT(doc._id, "/")[0]})
